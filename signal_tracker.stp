@@ -1,0 +1,34 @@
+#!/usr/bin/env stap
+
+function walk_parent () {
+    current_proc_struct = task_current();
+    parent_proc_pid     = task_pid( task_parent( current_proc_struct ));
+
+    while ( parent_proc_pid != 0 ) {
+        printf( "%s [%d] %d:%d 🔫",
+            task_execname( current_proc_struct ),
+            task_pid( current_proc_struct ),
+            task_uid( current_proc_struct ),
+            task_gid( current_proc_struct ));
+
+        current_proc_struct     = task_parent( current_proc_struct );
+        parent_proc_pid         = task_pid( task_parent( current_proc_struct ));
+    }
+
+    if ( task_pid( current_proc_struct ) == 1 ) {
+        printf( "%s [%d] %d:%d\n",
+            task_execname( current_proc_struct ),
+            task_pid( current_proc_struct ),
+            task_uid( current_proc_struct ),
+            task_gid( current_proc_struct ));
+    }
+}
+
+probe signal.send {
+    if ( sig_name == "SIGHUP" || sig_name == "SIGKILL" || sig_name == "SIGTERM" ) {
+        printf( "[%s] %s sent to %s [%d] by ",
+            ctime( gettimeofday_s() ), sig_name, pid_name, sig_pid );
+
+        walk_parent();
+    }
+}
